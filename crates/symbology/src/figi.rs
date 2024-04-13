@@ -32,22 +32,23 @@ use winnow::error::ErrorKind;
 use winnow::error::ParserError;
 use winnow::stream::Stream;
 
+use std::fmt;
+
+// NewType pattern inspired by https://www.worthe-it.co.za/blog/2020-10-31-newtype-pattern-in-rust.html
 #[derive(Debug, PartialEq)]
-struct Figi {
-    first_two: String,
-    third: char,
-    id: String,
-    check: char,
+struct Figi(String);
+
+impl FromStr for Figi {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        parse_figi.parse(s).map_err(|e| e.to_string())
+    }
 }
 
-impl Figi {
-    fn new(first_two: String, third: char, id: String, check: char) -> Self {
-        Self {
-            first_two,
-            third,
-            id,
-            check,
-        }
+impl fmt::Display for Figi {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 
@@ -68,25 +69,30 @@ fn digit(input: &mut &str) -> PResult<char> {
     one_of('0'..='9').parse_next(input)
 }
 
-fn parse_figi(input: &mut &str) -> PResult<Figi> {
-    trace("figi", |s: &mut &str| {
-        seq!{Figi{
-            first_two: take_while(2, is_consonant)
-                        .verify(|s: &str| !["BS", "BM", "GG", "GB", "GH", "KY", "VG"].contains(&s))
-                        .map(String::from)
-                        .context(StrContext::Expected(
-                            StrContextValue::Description("Two valid consonants not in restricted set"))),
-            third: 'G'.context(StrContext::Expected(
-                        StrContextValue::Description("G"))),
-            id: take_while(8, is_consnumeric)
-                        .map(String::from).context(StrContext::Expected(
-                            StrContextValue::Description("Eight consonant or numeric characters")
-                        )),
-            check: one_of('0'..='9')
-                        .context(StrContext::Expected(
-                            StrContextValue::Description("Check digit"))),
-        }}.parse_next(s)
-    }).parse_next(input)
+fn parse_figi<'s>(input: &mut &'s str) -> PResult<Figi> {
+    let s = trace("figi", |s: &mut &'s str| {
+        (
+            take_while(2, is_consonant)
+                .verify(|s: &str| !["BS", "BM", "GG", "GB", "GH", "KY", "VG"].contains(&s))
+                .map(String::from)
+                .context(StrContext::Expected(StrContextValue::Description(
+                    "Two valid consonants not in restricted set",
+                ))),
+            'G'.context(StrContext::Expected(StrContextValue::Description("G"))),
+            take_while(8, is_consnumeric)
+                .map(String::from)
+                .context(StrContext::Expected(StrContextValue::Description(
+                    "Eight consonant or numeric characters",
+                ))),
+            one_of('0'..='9').context(StrContext::Expected(StrContextValue::Description(
+                "Check digit",
+            ))),
+        )
+            .recognize()
+            .parse_next(s)
+    })
+    .parse_next(input)?;
+    Ok(Figi(s.to_string()))
 }
 
 #[cfg(test)]
@@ -103,8 +109,9 @@ mod exhaustive_tests {
         ];
 
         for input in valid_figis {
-            let result = parse_figi.parse_peek(input);
-            assert!(result.is_ok(), "Failed on valid input: {}", input);
+            let result = Figi::from_str(input).unwrap();
+            println!("{}, {}", input, result.to_string());
+            assert_eq!(result.to_string(), input);
         }
     }
 
@@ -117,7 +124,7 @@ mod exhaustive_tests {
         ];
 
         for input in invalid_figis {
-            let result = parse_figi.parse_peek(input);
+            let result = Figi::from_str(input);
             assert!(
                 result.is_err(),
                 "Should fail due to invalid length: {}",
@@ -135,7 +142,7 @@ mod exhaustive_tests {
         ];
 
         for input in invalid_starts {
-            let result = parse_figi.parse_peek(input);
+            let result = Figi::from_str(input);
             assert!(
                 result.is_err(),
                 "Should fail due to invalid start: {}",
@@ -148,7 +155,7 @@ mod exhaustive_tests {
     fn invalid_third_character() {
         let invalid_third = "BBX000BLNNH6"; // Third character is not 'G'
 
-        let result = parse_figi.parse_peek(invalid_third);
+        let result = Figi::from_str(invalid_third);
         assert!(
             result.is_err(),
             "Should fail due to invalid third character"
@@ -158,13 +165,13 @@ mod exhaustive_tests {
     #[test]
     fn invalid_id_section() {
         let invalid_ids = vec![
-            "BBG000BNNH6", // ID section contains non-consonant/non-numeric
+            "BBG000BNNH6", // ID section too short/non-consonant/non-numeric
             "BBG0A0BLNNH6", // ID section contains invalid characters
                            // Add more invalid ID section FIGI examples as needed
         ];
 
         for input in invalid_ids {
-            let result = parse_figi.parse_peek(input);
+            let result = Figi::from_str(input);
             assert!(
                 result.is_err(),
                 "Should fail due to invalid ID section: {}",
@@ -177,7 +184,7 @@ mod exhaustive_tests {
     fn invalid_check_digit() {
         let invalid_check_digit = "BBG000BLNNHH"; // Non-numeric check digit
 
-        let result = parse_figi.parse_peek(invalid_check_digit);
+        let result = Figi::from_str(invalid_check_digit);
         assert!(result.is_err(), "Should fail due to invalid check digit");
     }
 
@@ -188,10 +195,26 @@ mod exhaustive_tests {
         ];
 
         for input in invalid_positions {
-            let result = parse_figi.parse_peek(input);
+            let result = Figi::from_str(input);
             assert!(
                 result.is_err(),
                 "Should fail due to mispositioned characters: {}",
+                input
+            );
+        }
+    }
+
+    #[test]
+    fn valid_figi_with_garbage_following() {
+        let inputs_with_garbage = vec![
+            "BBG000BLNNH6EXTRA", // Valid FIGI with extra characters at the end
+        ];
+
+        for input in inputs_with_garbage {
+            let result = Figi::from_str(input);
+            assert!(
+                result.is_err(),
+                "Should fail as it contains additional garbage values: {}",
                 input
             );
         }
