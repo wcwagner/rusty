@@ -1,0 +1,12 @@
+[package]
+name = "symbology"
+version = "0.0.0"
+description = "Symbology for security identification"
+
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+winnow = { workspace = true, features = ["debug"] }
