@@ -47,7 +47,10 @@ impl FromStr for Figi {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        parse_figi.parse(s).map_err(|e| e.to_string())
+        match parse_figi.parse(s) {
+            Ok(s) => Ok(Figi(s.to_owned())),
+            Err(e) => Err(e.to_string()),
+        }
     }
 }
 
@@ -70,7 +73,7 @@ fn digit(input: &mut &str) -> PResult<char> {
     one_of('0'..='9').parse_next(input)
 }
 
-fn parse_figi<'s>(input: &mut &'s str) -> PResult<Figi> {
+fn parse_figi<'s>(input: &mut &'s str) -> PResult<&'s str> {
     let s = trace("figi", |s: &mut &'s str| {
         (
             take_while(2, is_consonant)
@@ -92,7 +95,7 @@ fn parse_figi<'s>(input: &mut &'s str) -> PResult<Figi> {
             .parse_next(s)
     })
     .parse_next(input)?;
-    Ok(Figi(s.to_string()))
+    Ok(s)
 }
 
 #[cfg(test)]
