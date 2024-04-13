@@ -1,4 +1,4 @@
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use rand::Rng;
 use regex::Regex;
 use std::str::FromStr;
@@ -113,23 +113,14 @@ fn generate_random_figi() -> String {
 
     figi
 }
-
-fn bench_figi_group(c: &mut Criterion) {
-    let mut group = c.benchmark_group("figi");
-
-    // Generate random FIGIs for benchmarking
-    let figi = "BBG000BLNNH6";
-
-    group.bench_with_input("imperative", figi, |b, figi| b.iter(|| is_valid_figi(figi)));
-    group.bench_with_input("regex", figi, |b, figi| {
-        b.iter(|| is_valid_figi_regex(figi))
+// Here we define a function to benchmark the Figi parsing functionality
+fn bench_figi_parse(c: &mut Criterion) {
+    c.bench_function("figi_parse", |b| {
+        // Use a representative FIGI value for benchmarking
+        // This value should ideally cover typical use cases
+        b.iter(|| Figi::from_str(black_box("BBG000BLNNH6")))
     });
-    group.bench_with_input("parse", figi, |b, figi| b.iter(|| Figi::from_str(figi)));
-
-    group.finish();
 }
 
-// You can define more specific benchmarks here, targeting different aspects or functions related to FIGIs
-
-criterion_group!(benches, bench_figi_group);
+criterion_group!(benches, bench_figi_parse);
 criterion_main!(benches);
