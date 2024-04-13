@@ -68,32 +68,27 @@ fn digit(input: &mut &str) -> PResult<char> {
     one_of('0'..='9').parse_next(input)
 }
 
-fn parse_figi<'s>(input: &mut &'s str) -> PResult<Figi> {
-    trace("figi", |s: &mut &'s str| {
-        let (first_two, g, id, check) = cut_err((
-            take_while(2, is_consonant)
-                .verify(|s: &str| !["BS", "BM", "GG", "GB", "GH", "KY", "VG"].contains(&s))
-                .context(StrContext::Expected(StrContextValue::Description(
-                    "any two consonants except for 'BS', 'BM', 'GG', 'GB', 'GH', 'KY', 'VG'",
-                ))),
-            'G'.context(StrContext::Expected(StrContextValue::Description("G"))),
-            take_while(8, is_consnumeric).context(StrContext::Expected(
-                StrContextValue::Description("eight consonant or numeric characters"),
-            )),
-            one_of('0'..='9').context(StrContext::Expected(StrContextValue::Description(
-                "check digit",
-            ))),
-        ))
-        .parse_next(s)?;
-        Ok(Figi {
-            first_two: first_two.to_owned(),
-            third: g,
-            id: id.to_owned(),
-            check,
-        })
-    })
-    .parse_next(input)
+fn parse_figi(input: &mut &str) -> PResult<Figi> {
+    trace("figi", |s: &mut &str| {
+        seq!{Figi{
+            first_two: take_while(2, is_consonant)
+                        .verify(|s: &str| !["BS", "BM", "GG", "GB", "GH", "KY", "VG"].contains(&s))
+                        .map(String::from)
+                        .context(StrContext::Expected(
+                            StrContextValue::Description("Two valid consonants not in restricted set"))),
+            third: 'G'.context(StrContext::Expected(
+                        StrContextValue::Description("G"))),
+            id: take_while(8, is_consnumeric)
+                        .map(String::from).context(StrContext::Expected(
+                            StrContextValue::Description("Eight consonant or numeric characters")
+                        )),
+            check: one_of('0'..='9')
+                        .context(StrContext::Expected(
+                            StrContextValue::Description("Check digit"))),
+        }}.parse_next(s)
+    }).parse_next(input)
 }
+
 #[cfg(test)]
 mod exhaustive_tests {
     use super::*;
