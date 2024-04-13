@@ -29,6 +29,7 @@ use winnow::prelude::*;
 use winnow::stream::AsChar;
 use winnow::token::none_of;
 use winnow::token::one_of;
+use winnow::token::take;
 use winnow::token::take_while;
 
 use winnow::combinator::seq;
@@ -73,11 +74,28 @@ fn digit(input: &mut &str) -> PResult<char> {
     one_of('0'..='9').parse_next(input)
 }
 
+fn is_first_two_valid(first_two: &str) -> bool {
+    if first_two == "BS"
+        || first_two == "BM"
+        || first_two == "GG"
+        || first_two == "GB"
+        || first_two == "GH"
+        || first_two == "KY"
+        || first_two == "VG"
+    {
+        return false;
+    }
+    if !first_two.chars().all(|c| CONSONANTS.contains(&c)) {
+        return false;
+    }
+    true
+}
+
 fn parse_figi<'s>(input: &mut &'s str) -> PResult<&'s str> {
     let s = trace("figi", |s: &mut &'s str| {
         (
-            take_while(2, is_consonant)
-                .verify(|s: &str| !["BS", "BM", "GG", "GB", "GH", "KY", "VG"].contains(&s))
+            take(2usize)
+                .verify(|s: &str| is_first_two_valid(s))
                 .context(StrContext::Expected(StrContextValue::Description(
                     "Two valid consonants not in restricted set",
                 ))),
