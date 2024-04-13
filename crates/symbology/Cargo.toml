@@ -9,4 +9,14 @@ license.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-winnow = { workspace = true, features = ["debug"] }
+winnow = { workspace = true }
+
+[dev-dependencies]
+criterion ={version =  "^0.5.1"}
+rand = "0.8.5"
+regex = "1.10.4"
+
+
+[[bench]]
+name = "benchmark"
+harness = false  # This allows Criterion to take over running the benchmark

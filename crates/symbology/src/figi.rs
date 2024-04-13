@@ -36,7 +36,7 @@ use std::fmt;
 
 // NewType pattern inspired by https://www.worthe-it.co.za/blog/2020-10-31-newtype-pattern-in-rust.html
 #[derive(Debug, PartialEq)]
-struct Figi(String);
+pub struct Figi(String);
 
 impl FromStr for Figi {
     type Err = String;
@@ -61,10 +61,6 @@ fn is_consonant(c: char) -> bool {
     CONSONANTS.contains(&c)
 }
 
-fn is_consnumeric(c: char) -> bool {
-    is_consonant(c) || c.is_ascii_digit()
-}
-
 fn digit(input: &mut &str) -> PResult<char> {
     one_of('0'..='9').parse_next(input)
 }
@@ -79,7 +75,7 @@ fn parse_figi<'s>(input: &mut &'s str) -> PResult<Figi> {
                     "Two valid consonants not in restricted set",
                 ))),
             'G'.context(StrContext::Expected(StrContextValue::Description("G"))),
-            take_while(8, is_consnumeric)
+            take_while(8, |c: char| is_consonant(c) || c.is_ascii_digit())
                 .map(String::from)
                 .context(StrContext::Expected(StrContextValue::Description(
                     "Eight consonant or numeric characters",
@@ -110,7 +106,6 @@ mod exhaustive_tests {
 
         for input in valid_figis {
             let result = Figi::from_str(input).unwrap();
-            println!("{}, {}", input, result.to_string());
             assert_eq!(result.to_string(), input);
         }
     }
@@ -215,6 +210,52 @@ mod exhaustive_tests {
             assert!(
                 result.is_err(),
                 "Should fail as it contains additional garbage values: {}",
+                input
+            );
+        }
+    }
+
+    #[test]
+    fn empty_string() {
+        let result = Figi::from_str("");
+        assert!(result.is_err(), "Should fail due to being an empty string");
+    }
+
+    #[test]
+    fn non_ascii_characters() {
+        let non_ascii_inputs = vec![
+            "ББG000BLNNH6",        // Cyrillic characters
+            "嗨G000BLNNH6",        // Chinese character
+            "BBG😀00BLNNH6",       // Emoji
+            "\u{200D}BG000BLNNH6", // Zero-width joiner
+            "BBG0🚀0BLNNH6",       // Emoji within the ID section
+        ];
+
+        for input in non_ascii_inputs {
+            let result = Figi::from_str(input);
+            assert!(
+                result.is_err(),
+                "Should fail due to non-ASCII characters: {}",
+                input
+            );
+        }
+    }
+
+    #[test]
+    fn truly_garbage_inputs() {
+        let garbage_inputs = vec![
+            "!@#$%^&*()_+", // Special characters
+            "    ",         // Whitespace characters
+            "\0\0\0\0",     // Null bytes
+            "LONG_STRING_WITHOUT_ANY_VALID_CHARS_OR_STRUCTURE_TO_IT_SHOULD_FAIL", // Long irrelevant string
+            "\u{FFFF}BBG000BLNNH6", // Invalid Unicode character
+        ];
+
+        for input in garbage_inputs {
+            let result = Figi::from_str(input);
+            assert!(
+                result.is_err(),
+                "Should fail due to garbage input values: {}",
                 input
             );
         }

@@ -1,1 +1,1 @@
-mod figi;
+pub mod figi;
