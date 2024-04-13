@@ -8,7 +8,12 @@
 //!   - Any combination of upper case consonants with the following exceptions:
 //!      - BS, BM, GG, GB, GH, KY, VG
 //!      - "The purpose of the restriction is to reduce the changes that the resulting identifier may be identical to an ISIN string."
-//!
+//! Character 3
+//!   - Letter 'G'
+//! Characters 4-11
+//!   - Any combination of upper case consonants and the numerals 0 – 9
+//! Character 12
+//!   - A check digit (0 – 9)
 
 #![allow(dead_code, unused_imports)]
 
@@ -70,7 +75,6 @@ fn parse_figi<'s>(input: &mut &'s str) -> PResult<Figi> {
         (
             take_while(2, is_consonant)
                 .verify(|s: &str| !["BS", "BM", "GG", "GB", "GH", "KY", "VG"].contains(&s))
-                .map(String::from)
                 .context(StrContext::Expected(StrContextValue::Description(
                     "Two valid consonants not in restricted set",
                 ))),
