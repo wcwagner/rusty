@@ -79,11 +79,11 @@ fn parse_figi<'s>(input: &mut &'s str) -> PResult<Figi> {
                     "Two valid consonants not in restricted set",
                 ))),
             'G'.context(StrContext::Expected(StrContextValue::Description("G"))),
-            take_while(8, |c: char| is_consonant(c) || c.is_ascii_digit())
-                .map(String::from)
-                .context(StrContext::Expected(StrContextValue::Description(
+            take_while(8, |c: char| is_consonant(c) || c.is_ascii_digit()).context(
+                StrContext::Expected(StrContextValue::Description(
                     "Eight consonant or numeric characters",
-                ))),
+                )),
+            ),
             one_of('0'..='9').context(StrContext::Expected(StrContextValue::Description(
                 "Check digit",
             ))),
