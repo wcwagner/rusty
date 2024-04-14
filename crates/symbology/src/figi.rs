@@ -91,6 +91,11 @@ fn is_first_two_valid(first_two: &str) -> bool {
     true
 }
 
+fn is_all_consonant_or_numeric(s: &str) -> bool {
+    s.chars()
+        .all(|c| CONSONANTS.contains(&c) || c.is_ascii_digit())
+}
+
 fn parse_figi<'s>(input: &mut &'s str) -> PResult<&'s str> {
     let s = trace("figi", |s: &mut &'s str| {
         (
@@ -100,11 +105,11 @@ fn parse_figi<'s>(input: &mut &'s str) -> PResult<&'s str> {
                     "Two valid consonants not in restricted set",
                 ))),
             'G'.context(StrContext::Expected(StrContextValue::Description("G"))),
-            take_while(8, |c: char| is_consonant(c) || c.is_ascii_digit()).context(
-                StrContext::Expected(StrContextValue::Description(
+            take(8usize)
+                .verify(|s: &str| is_all_consonant_or_numeric(s))
+                .context(StrContext::Expected(StrContextValue::Description(
                     "Eight consonant or numeric characters",
-                )),
-            ),
+                ))),
             one_of('0'..='9').context(StrContext::Expected(StrContextValue::Description(
                 "Check digit",
             ))),
