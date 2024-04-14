@@ -1,45 +1,14 @@
 //! Figi Identifier
 //! https://www.omg.org/spec/FIGI/1.1/Beta1/PDF
-//! # Structure (pg. 31)
-//! Allow characters (pg. 12):
-//!    - "All upper case ISO 8859-1 consonants (including Y)."
-//!    - "The single digit integers 0 – 9"
-//! Characters 1 and 2
-//!   - Any combination of upper case consonants with the following exceptions:
-//!      - BS, BM, GG, GB, GH, KY, VG
-//!      - "The purpose of the restriction is to reduce the changes that the resulting identifier may be identical to an ISIN string."
-//! Character 3
-//!   - Letter 'G'
-//! Characters 4-11
-//!   - Any combination of upper case consonants and the numerals 0 – 9
-//! Character 12
-//!   - A check digit (0 – 9)
-
-#![allow(dead_code, unused_imports)]
 
 use std::ops::RangeInclusive;
 use std::str::FromStr;
-use winnow::ascii::alphanumeric1;
-use winnow::ascii::digit1;
-use winnow::combinator::alt;
-use winnow::combinator::cut_err;
-use winnow::combinator::repeat;
-use winnow::combinator::trace;
 use winnow::error::StrContext;
 use winnow::error::StrContextValue;
 use winnow::prelude::*;
-use winnow::stream::AsChar;
 use winnow::token::literal;
-use winnow::token::none_of;
 use winnow::token::one_of;
-use winnow::token::take;
 use winnow::token::take_while;
-
-use winnow::combinator::seq;
-use winnow::error::ErrMode;
-use winnow::error::ErrorKind;
-use winnow::error::ParserError;
-use winnow::stream::Stream;
 
 use std::fmt;
 
@@ -64,18 +33,6 @@ impl fmt::Display for Figi {
     }
 }
 
-const CONSONANTS: &[char; 21] = &[
-    'B', 'C', 'D', 'F', 'G', 'H', 'J', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'V', 'W', 'X',
-    'Y', 'Z',
-];
-
-fn is_consonant(c: char) -> bool {
-    CONSONANTS.contains(&c)
-}
-
-fn digit(input: &mut &str) -> PResult<char> {
-    one_of('0'..='9').parse_next(input)
-}
 const CONSONANT: (
     RangeInclusive<char>,
     RangeInclusive<char>,
@@ -125,12 +82,6 @@ fn prefix<'s>(input: &mut &'s str) -> PResult<&'s str> {
     )))
     .recognize()
     .parse_next(input)
-}
-
-#[inline(always)]
-fn is_all_consonant_or_numeric(s: &str) -> bool {
-    s.chars()
-        .all(|c| c.is_ascii_digit() || CONSONANTS.contains(&c))
 }
 
 fn parse_figi<'s>(input: &mut &'s str) -> PResult<&'s str> {
