@@ -74,6 +74,7 @@ fn digit(input: &mut &str) -> PResult<char> {
     one_of('0'..='9').parse_next(input)
 }
 
+#[inline(always)]
 fn is_first_two_valid(first_two: &str) -> bool {
     if first_two == "BS"
         || first_two == "BM"
@@ -91,9 +92,10 @@ fn is_first_two_valid(first_two: &str) -> bool {
     true
 }
 
+#[inline(always)]
 fn is_all_consonant_or_numeric(s: &str) -> bool {
     s.chars()
-        .all(|c| CONSONANTS.contains(&c) || c.is_ascii_digit())
+        .all(|c| c.is_ascii_digit() || CONSONANTS.contains(&c))
 }
 
 fn parse_figi<'s>(input: &mut &'s str) -> PResult<&'s str> {
