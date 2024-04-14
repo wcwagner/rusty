@@ -20,6 +20,7 @@
 use std::str::FromStr;
 use winnow::ascii::alphanumeric1;
 use winnow::ascii::digit1;
+use winnow::combinator::alt;
 use winnow::combinator::cut_err;
 use winnow::combinator::repeat;
 use winnow::combinator::trace;
@@ -27,6 +28,7 @@ use winnow::error::StrContext;
 use winnow::error::StrContextValue;
 use winnow::prelude::*;
 use winnow::stream::AsChar;
+use winnow::token::literal;
 use winnow::token::none_of;
 use winnow::token::one_of;
 use winnow::token::take;
@@ -61,7 +63,7 @@ impl fmt::Display for Figi {
     }
 }
 
-const CONSONANTS: &[char] = &[
+const CONSONANTS: &[char; 21] = &[
     'B', 'C', 'D', 'F', 'G', 'H', 'J', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'V', 'W', 'X',
     'Y', 'Z',
 ];
@@ -76,6 +78,11 @@ fn digit(input: &mut &str) -> PResult<char> {
 
 #[inline(always)]
 fn is_first_two_valid(first_two: &str) -> bool {
+    // Almost all Figi's are issued by Bloomberg and start with "BB"
+    // Optimistic parsing here nets 17% performance gain
+    if first_two == "BB" {
+        return true;
+    }
     if first_two == "BS"
         || first_two == "BM"
         || first_two == "GG"
@@ -99,10 +106,10 @@ fn is_all_consonant_or_numeric(s: &str) -> bool {
 }
 
 fn parse_figi<'s>(input: &mut &'s str) -> PResult<&'s str> {
-    let s = trace("figi", |s: &mut &'s str| {
+    trace("figi", move |s: &mut &'s str| {
         (
             take(2usize)
-                .verify(|s: &str| is_first_two_valid(s))
+                .verify(is_first_two_valid)
                 .context(StrContext::Expected(StrContextValue::Description(
                     "Two valid consonants not in restricted set",
                 ))),
@@ -119,8 +126,7 @@ fn parse_figi<'s>(input: &mut &'s str) -> PResult<&'s str> {
             .recognize()
             .parse_next(s)
     })
-    .parse_next(input)?;
-    Ok(s)
+    .parse_next(input)
 }
 
 #[cfg(test)]
