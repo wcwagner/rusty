@@ -17,6 +17,7 @@
 
 #![allow(dead_code, unused_imports)]
 
+use std::ops::RangeInclusive;
 use std::str::FromStr;
 use winnow::ascii::alphanumeric1;
 use winnow::ascii::digit1;
@@ -75,28 +76,55 @@ fn is_consonant(c: char) -> bool {
 fn digit(input: &mut &str) -> PResult<char> {
     one_of('0'..='9').parse_next(input)
 }
+const CONSONANT: (
+    RangeInclusive<char>,
+    RangeInclusive<char>,
+    RangeInclusive<char>,
+    RangeInclusive<char>,
+    RangeInclusive<char>,
+) = ('B'..='D', 'F'..='H', 'J'..='N', 'P'..='T', 'V'..='Z');
+
+const CONSONANT_OR_NUMERIC: (
+    RangeInclusive<char>,
+    RangeInclusive<char>,
+    RangeInclusive<char>,
+    RangeInclusive<char>,
+    RangeInclusive<char>,
+    RangeInclusive<char>,
+) = (
+    'B'..='D',
+    'F'..='H',
+    'J'..='N',
+    'P'..='T',
+    'V'..='Z',
+    '0'..='9',
+);
+use winnow::stream::ContainsToken;
+
+#[inline]
+fn is_conso_numeric(c: char) -> bool {
+    CONSONANT_OR_NUMERIC.contains_token(c)
+}
 
 #[inline(always)]
-fn is_first_two_valid(first_two: &str) -> bool {
+fn prefix<'s>(input: &mut &'s str) -> PResult<&'s str> {
     // Almost all Figi's are issued by Bloomberg and start with "BB"
     // Optimistic parsing here nets 17% performance gain
-    if first_two == "BB" {
-        return true;
-    }
-    if first_two == "BS"
-        || first_two == "BM"
-        || first_two == "GG"
-        || first_two == "GB"
-        || first_two == "GH"
-        || first_two == "KY"
-        || first_two == "VG"
-    {
-        return false;
-    }
-    if !first_two.chars().all(|c| CONSONANTS.contains(&c)) {
-        return false;
-    }
-    true
+    use winnow::combinator::alt;
+    alt((
+        literal("BBG").void(),
+        (
+            take_while(2usize, |c| CONSONANT.contains_token(c))
+                .verify(|s: &str| !&["BS", "BM", "GG", "GB", "GH", "KY", "VG"].contains(&s)),
+            'G',
+        )
+            .void(),
+    ))
+    .context(StrContext::Expected(StrContextValue::Description(
+        "Two valid consonants  follow by a 'G'",
+    )))
+    .recognize()
+    .parse_next(input)
 }
 
 #[inline(always)]
@@ -106,27 +134,17 @@ fn is_all_consonant_or_numeric(s: &str) -> bool {
 }
 
 fn parse_figi<'s>(input: &mut &'s str) -> PResult<&'s str> {
-    trace("figi", move |s: &mut &'s str| {
-        (
-            take(2usize)
-                .verify(is_first_two_valid)
-                .context(StrContext::Expected(StrContextValue::Description(
-                    "Two valid consonants not in restricted set",
-                ))),
-            'G'.context(StrContext::Expected(StrContextValue::Description("G"))),
-            take(8usize)
-                .verify(|s: &str| is_all_consonant_or_numeric(s))
-                .context(StrContext::Expected(StrContextValue::Description(
-                    "Eight consonant or numeric characters",
-                ))),
-            one_of('0'..='9').context(StrContext::Expected(StrContextValue::Description(
-                "Check digit",
-            ))),
-        )
-            .recognize()
-            .parse_next(s)
-    })
-    .parse_next(input)
+    (
+        prefix,
+        take_while(8usize, is_conso_numeric).context(StrContext::Expected(
+            StrContextValue::Description("Eight consonant or numeric characters"),
+        )),
+        one_of('0'..='9').context(StrContext::Expected(StrContextValue::Description(
+            "Check digit",
+        ))),
+    )
+        .recognize()
+        .parse_next(input)
 }
 
 #[cfg(test)]
