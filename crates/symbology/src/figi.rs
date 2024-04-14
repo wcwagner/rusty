@@ -20,9 +20,12 @@ impl FromStr for Figi {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match parse_figi.parse(s) {
-            Ok(s) => Ok(Figi(s.to_owned())),
-            Err(e) => Err(e.to_string()),
+        let mut bytes_slice = s.as_bytes();
+        // Now that we have a [u8; 12], we can pass it to the parser
+        // Assuming `parse_figi` is adapted to work with a fixed-size byte array
+        match parse_figi.parse(&mut bytes_slice) {
+            Ok(_) => Ok(Figi(s.to_owned())), // If parsing succeeds, create a Figi instance
+            Err(_) => Err(String::from("Failed to parse FIGI")), // Handle parsing errors appropriately
         }
     }
 }
@@ -33,47 +36,31 @@ impl fmt::Display for Figi {
     }
 }
 
-const CONSONANT: (
-    RangeInclusive<char>,
-    RangeInclusive<char>,
-    RangeInclusive<char>,
-    RangeInclusive<char>,
-    RangeInclusive<char>,
-) = ('B'..='D', 'F'..='H', 'J'..='N', 'P'..='T', 'V'..='Z');
+fn is_consonant(b: u8) -> bool {
+    matches!(b, b'B'..=b'D' | b'F'..=b'H' | b'J'..=b'N' | b'P'..=b'T' | b'V'..=b'Z')
+}
 
-const CONSONANT_OR_NUMERIC: (
-    RangeInclusive<char>,
-    RangeInclusive<char>,
-    RangeInclusive<char>,
-    RangeInclusive<char>,
-    RangeInclusive<char>,
-    RangeInclusive<char>,
-) = (
-    'B'..='D',
-    'F'..='H',
-    'J'..='N',
-    'P'..='T',
-    'V'..='Z',
-    '0'..='9',
-);
-use winnow::stream::ContainsToken;
+fn is_conso_numeric(b: u8) -> bool {
+    is_consonant(b) || matches!(b, b'0'..=b'9')
+}
 
-#[inline]
-fn is_conso_numeric(c: char) -> bool {
-    CONSONANT_OR_NUMERIC.contains_token(c)
+fn is_valid_prefix(input: &[u8]) -> bool {
+    match input {
+        b"BS" | b"BM" | b"GG" | b"GB" | b"GH" | b"KY" | b"VG" => false,
+        _ => true,
+    }
 }
 
 #[inline(always)]
-fn prefix<'s>(input: &mut &'s str) -> PResult<&'s str> {
+fn prefix<'s>(input: &mut &'s [u8]) -> PResult<&'s [u8]> {
     // Almost all Figi's are issued by Bloomberg and start with "BB"
     // Optimistic parsing here nets 17% performance gain
     use winnow::combinator::alt;
     alt((
-        literal("BBG").void(),
+        literal(b"BBG").void(),
         (
-            take_while(2usize, |c| CONSONANT.contains_token(c))
-                .verify(|s: &str| !&["BS", "BM", "GG", "GB", "GH", "KY", "VG"].contains(&s)),
-            'G',
+            take_while(2usize, is_consonant).verify(is_valid_prefix),
+            b'G',
         )
             .void(),
     ))
@@ -84,13 +71,13 @@ fn prefix<'s>(input: &mut &'s str) -> PResult<&'s str> {
     .parse_next(input)
 }
 
-fn parse_figi<'s>(input: &mut &'s str) -> PResult<&'s str> {
+fn parse_figi<'s>(input: &mut &'s [u8]) -> PResult<&'s [u8]> {
     (
         prefix,
         take_while(8usize, is_conso_numeric).context(StrContext::Expected(
             StrContextValue::Description("Eight consonant or numeric characters"),
         )),
-        one_of('0'..='9').context(StrContext::Expected(StrContextValue::Description(
+        one_of(b'0'..=b'9').context(StrContext::Expected(StrContextValue::Description(
             "Check digit",
         ))),
     )
