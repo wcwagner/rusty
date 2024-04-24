@@ -14,7 +14,7 @@ use std::fmt;
 
 // NewType pattern inspired by https://www.worthe-it.co.za/blog/2020-10-31-newtype-pattern-in-rust.html
 #[derive(Debug, PartialEq)]
-pub struct Figi(String);
+pub struct Figi(pub String);
 
 impl FromStr for Figi {
     type Err = String;
@@ -24,7 +24,9 @@ impl FromStr for Figi {
         // Now that we have a [u8; 12], we can pass it to the parser
         // Assuming `parse_figi` is adapted to work with a fixed-size byte array
         match parse_figi.parse(&mut bytes_slice) {
-            Ok(_) => Ok(Figi(s.to_owned())), // If parsing succeeds, create a Figi instance
+            Ok(_) => {
+                Ok(Figi(s.to_owned())) // If parsing succeeds, create a Figi instance
+            }
             Err(_) => Err(String::from("Failed to parse FIGI")), // Handle parsing errors appropriately
         }
     }
@@ -36,18 +38,32 @@ impl fmt::Display for Figi {
     }
 }
 
+#[inline(always)]
 fn is_consonant(b: u8) -> bool {
     matches!(b, b'B'..=b'D' | b'F'..=b'H' | b'J'..=b'N' | b'P'..=b'T' | b'V'..=b'Z')
 }
 
+#[inline(always)]
 fn is_conso_numeric(b: u8) -> bool {
-    is_consonant(b) || matches!(b, b'0'..=b'9')
+    matches!(b, b'0'..=b'9' |  b'B'..=b'D' | b'F'..=b'H' | b'J'..=b'N' | b'P'..=b'T' | b'V'..=b'Z')
 }
 
 fn is_valid_prefix(input: &[u8]) -> bool {
     match input {
         b"BS" | b"BM" | b"GG" | b"GB" | b"GH" | b"KY" | b"VG" => false,
         _ => true,
+    }
+}
+
+pub(crate) unsafe fn from_utf8_unchecked<'b>(
+    bytes: &'b [u8],
+    safety_justification: &'static str,
+) -> &'b str {
+    if cfg!(debug_assertions) {
+        // Catch problems more quickly when testing
+        std::str::from_utf8(bytes).expect(safety_justification)
+    } else {
+        std::str::from_utf8_unchecked(bytes)
     }
 }
 
@@ -71,7 +87,7 @@ fn prefix<'s>(input: &mut &'s [u8]) -> PResult<&'s [u8]> {
     .parse_next(input)
 }
 
-fn parse_figi<'s>(input: &mut &'s [u8]) -> PResult<&'s [u8]> {
+fn parse_figi<'s>(input: &mut &'s [u8]) -> PResult<&'s str> {
     (
         prefix,
         take_while(8usize, is_conso_numeric).context(StrContext::Expected(
@@ -82,6 +98,7 @@ fn parse_figi<'s>(input: &mut &'s [u8]) -> PResult<&'s [u8]> {
         ))),
     )
         .recognize()
+        .map(|b| unsafe { from_utf8_unchecked(b, "`is_unquoted_char` filters out on-ASCII") })
         .parse_next(input)
 }
 

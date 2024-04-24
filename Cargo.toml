@@ -11,5 +11,4 @@ license = "MIT"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [workspace.dependencies]
-symbology = { path = "./crates/symbology", version = "0.0.0" }
 winnow = {version = "0.6.6" }
