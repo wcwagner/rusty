@@ -1,8 +1,7 @@
 //! Figi Identifier
 //! https://www.omg.org/spec/FIGI/1.1/Beta1/PDF
 
-use std::ops::RangeInclusive;
-use std::str::FromStr;
+-use std::str::FromStr;
 use winnow::error::StrContext;
 use winnow::error::StrContextValue;
 use winnow::prelude::*;
@@ -14,7 +13,7 @@ use std::fmt;
 
 // NewType pattern inspired by https://www.worthe-it.co.za/blog/2020-10-31-newtype-pattern-in-rust.html
 #[derive(Debug, PartialEq)]
-pub struct Figi(pub String);
+pub struct Figi(String);
 
 impl FromStr for Figi {
     type Err = String;

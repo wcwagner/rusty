@@ -1,7 +1,7 @@
 use std::str::FromStr;
 use winnow::combinator::{alt, seq};
 use winnow::prelude::*;
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Scheme {
     BLP,
 }
@@ -22,7 +22,7 @@ pub struct Service {
 }
 
 fn scheme<'s>(i: &mut &'s str) -> PResult<Scheme> {
-    "blp".map(|_| Scheme::BLP).parse_next(i)
+    "blp".value(Scheme::BLP).parse_next(i)
 }
 
 fn provider<'s>(i: &mut &'s str) -> PResult<Provider> {
